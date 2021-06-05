@@ -30,8 +30,7 @@
                             <h2>디닷컴 잔디밭 대시보드(2021)</h2>
                         </div>
                         <div class="col-sm-7">
-                            <a href="#" class="btn btn-secondary"><i class="material-icons">&#xE147;</i> <span>아이디 신규 등록</span></a>
-                            <a href="#" class="btn btn-secondary"><i class="material-icons">&#xE147;</i> <span>아이디어 제안하기</span></a>
+                            <a href="#" class="btn btn-secondary" data-toggle="modal" data-target="#register-modal"><i class="material-icons">&#xE147;</i> <span>아이디 신규 등록</span></a>
                         </div>
                     </div>
                 </div>
@@ -80,8 +79,9 @@
                             <th>참여 날짜</th>
                             <th>커밋수</th>
                             <th>최근 연속 커밋</th>
-                            <th>총 벌금(+이번주)</th>
+                            <th>총 벌금 (+이번주)</th>
                             <th>성실도</th>
+                            <th>관리</th>
                         </tr>
                     </thead>
                     <tbody id="users">
@@ -90,24 +90,114 @@
                 </table>
             </div>
         </div>
-    </div>    
+    </div>
+	<div class="modal" id="register-modal" tabindex="-1" role="dialog">
+	  <div class="modal-dialog" role="document">
+		<div class="modal-content">
+		  <div class="modal-header">
+			<h5 class="modal-title">아이디 신규 등록</h5>
+			<button type="button" class="close" data-dismiss="modal" aria-label="Close">
+			  <span aria-hidden="true">&times;</span>
+			</button>
+		  </div>
+		  <div class="modal-body">
+			<input type="text" id="register-name" placeholder="이름" name="name" class="form-control">
+			<input type="text" id="register-id" placeholder="깃헙 아이디" name="id" class="form-control" style="margin-top:5px">
+			<input type="date" id="register-started-at" placeholder="시작일" name="name" class="form-control" style="margin-top:5px">
+		  </div>
+		  <div class="modal-footer">
+			<button type="button" id="btn-register" class="btn btn-primary">저장</button>
+			<button type="button" class="btn btn-secondary" data-dismiss="modal">닫기</button>
+		  </div>
+		</div>
+	  </div>
+	</div>
     <script>
-        $.ajax({
-            type: 'POST',
-            url: '/users',
-            success: function(res){
-                $("#users").html(res);
-                $.ajax({
-                    type: 'POST',
-                    url: '/total',
-                    success: function(res){
-                        console.log(res);
-                        $("#total").html(res["total_fine"].toLocaleString('en-US') + "원");
-                        $("#loading").html("");
-                    }
-                });
-            }
-        });
+		$(function() {
+			$.getJSON("/api/get_users.php", function(res) {
+				const numberFormat = (num) => (num/1).toFixed(0).replace('.', ',').toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+				const stateColor = {
+					"A":"success",
+					"B":"warning",
+					"C":"warning",
+					"D":"warning",
+					"F":"danger"
+				}
+				let total = 0;
+				res = res.sort((a, b) => {
+					if(a.nCommit > b.nCommit)
+						return -1;
+					else if(a.nCommit < b.nCommit)
+						return 1;
+					else
+						return 0;
+				});
+				$("#users tr").remove();
+				res.map((user, i) => {
+					total += user.fine;
+					$("#users").append(
+						`
+						<tr>
+							<td>${i + 1}</td>
+							<td><a href="https://github.com/${user.id}"><img src="${user.profile}" class="avatar" alt="Avatar" height="50px" width="50px"> ${user.name}</a></td>
+							<td>${user.startedAt}</td>                        
+							<td>${user.nCommit}</td>
+							<td>${user.nConsecutive}</td>
+							<td>${numberFormat(user.fine)}원 (+${numberFormat(user.fineThisWeek)}원)</td>
+							<td><span class="status text-${stateColor[user.state]}">&bull;</span> ${user.state}</td>
+							<td><button class="btn btn-danger btn-delete" data-id="${user.id}" type="button">삭제</button></td>
+						</tr>
+						`
+					);
+				});
+				$("#total").html(numberFormat(total) + "원");
+				$("#loading").html("");
+				$("#users .btn-delete").click(function() {
+					if(!confirm("리얼?")) return;
+
+					$.ajax({
+						type: 'POST',
+						url: '/api/delete_user.php',
+						data:{id:$(this).data("id")},
+						success:function(res) {
+							res = JSON.parse(res);
+							if(res.success) {
+								alert("삭제 성공");
+								history.go(0);
+							} else {
+								alert("삭제 실패");
+							}
+						}
+					});
+				});
+			});
+
+			$("#btn-register").click(function() {
+				const name = $("#register-name").val();
+				const id = $("#register-id").val();
+				const startedAt = $("#register-started-at").val();
+
+				if(!name || !id || !startedAt) {
+					alert("빈 값이 있음");
+					return;
+				}
+
+				$.ajax({
+					type: 'POST',
+					url: '/api/add_user.php',
+					data:{name, id, startedAt},
+					success:function(res) {
+						res = JSON.parse(res);
+						if(res.success) {
+							alert("등록 성공");
+							history.go(0);
+						} else {
+							alert("등록 실패");
+						}
+					}
+				});
+			});
+		});
     </script> 
 </body>
 </html>
