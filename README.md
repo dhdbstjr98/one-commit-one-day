@@ -1,13 +1,8 @@
 
 ## This is one-commit-one-day project dashboard
 
+### Demo
+https://1d1c-study.dcom.club
+
 ### Requirement
-Python3  
-
-modules  
-- Flask
-- requests
-- bs4
-- pytz
-
-
+php7
